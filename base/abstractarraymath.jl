@@ -387,9 +387,15 @@ end
 end#module
 
 struct EachSlice{E,M,A,I,L} <: AbstractArray{E,M}
-    arr::A # underlying array
-    cartiter::I # CartesianIndices iterator
-    lookup::L # dimension look up: dimension index in cartiter, or nothing
+    "parent array"
+    arr::A
+    "The `CartesianIndices` iterator used to index each slice"
+    cartiter::I
+    """
+    A `Tuple` of length `ndims(A)`, each element either the dimension index into
+    `cartiter`, or `nothing` if it is a variable to be sliced over
+    """
+    lookup::L
 end
 
 function iterate(s::EachSlice, state...)
@@ -532,7 +538,7 @@ julia> collect(eachslice(M, dims=2))
 
     # determine element type
     I = Tuple{map((a,l) -> l === nothing ? typeof(a) : eltype(a), axes(A), lookup)...}
-    hasstride = IndexStyle(A) == IndexLinear() # has linear indexing if parent does
+    hasstride = IndexStyle(A) === IndexLinear() # has linear indexing if parent does
     E = SubArray{eltype(A),N-M,typeof(A),I,hasstride}
 
     EachSlice{E,M}(A,iter,lookup)
