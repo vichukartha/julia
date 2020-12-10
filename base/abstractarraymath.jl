@@ -386,7 +386,7 @@ end
 
 end#module
 
-struct EachSlice{A,I,L}
+struct EachSlice{E,M,A,I,L} <: AbstractArray{E,M}
     arr::A # underlying array
     cartiter::I # CartesianIndices iterator
     lookup::L # dimension look up: dimension index in cartiter, or nothing
@@ -402,8 +402,9 @@ end
 size(s::EachSlice) = size(s.cartiter)
 length(s::EachSlice) = length(s.cartiter)
 ndims(s::EachSlice) = ndims(s.cartiter)
-IteratorSize(::Type{EachSlice{A,I,L}}) where {A,I,L} = IteratorSize(I)
-IteratorEltype(::Type{EachSlice{A,I,L}}) where {A,I,L} = EltypeUnknown()
+IteratorSize(::Type{EachSlice{E,M,A,I,L}}) where {E,M,A,I,L} = IteratorSize(I)
+eltype(s::EachSlice{E}) where {E} = E
+IteratorEltype(::Type{EachSlice{E,M,A,I,L}}) where {E,M,A,I,L} = HasEltype()
 
 parent(s::EachSlice) = s.arr
 
@@ -518,11 +519,21 @@ julia> collect(eachslice(M, dims=2))
  [3, 6, 9]
 ```
 """
-@inline function eachslice(A::AbstractArray; dims)
-    for dim in dims
-        dim <= ndims(A) || throw(DimensionMismatch("A doesn't have $dim dimensions"))
+@inline eachslice(A;dims) = _eachslice(A,dims)
+
+@inline _eachslice(A,dim::Integer) = _eachslice(A,(dim,))
+@inline function _eachslice(A::AbstractArray{N}, dims::NTuple{M,Integer}) where {N,M}
+    for (i,dim) in enumerate(dims)
+        1 <= dim <= N || throw(DimensionMismatch("A doesn't have dimension $dim"))
+        dim in dims[1:i-1] && throw(DimensionMismatch("$dims are not unique"))
     end
     iter = CartesianIndices(map(dim -> axes(A,dim), dims))
-    lookup = ntuple(dim -> findfirst(isequal(dim), dims), ndims(A))
-    EachSlice(A,iter,lookup)
+    lookup = ntuple(dim -> findfirst(isequal(dim), dims), N)
+
+    # determine element type
+    I = Tuple{map((a,l) -> l === nothing ? typeof(a) : eltype(a), axes(A), lookup)...}
+    hasstride = IndexStyle(A) == IndexLinear() # has linear indexing if parent does
+    E = SubArray{eltype(A),N-M,typeof(A),I,hasstride}
+
+    EachSlice{E,M}(A,iter,lookup)
 end
