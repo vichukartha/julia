@@ -95,6 +95,24 @@ function chkfinite(A::AbstractMatrix)
     return true
 end
 
+function chkuplofinite(A::AbstractMatrix, uplo::AbstractChar)
+    require_one_based_indexing(A)
+    m, n = size(A)
+    if uplo == 'U'
+        @inbounds for j in 1:n, i in 1:j
+            if !isfinite(A[i,j])
+                throw(ArgumentError("matrix contains Infs or NaNs"))
+            end
+        end
+    else
+        @inbounds for j in 1:n, i in j:m
+            if !isfinite(A[i,j])
+                throw(ArgumentError("matrix contains Infs or NaNs"))
+            end
+        end
+    end
+end
+
 # LAPACK version number
 function version()
     major = Ref{BlasInt}(0)
@@ -592,17 +610,28 @@ Returns `A` and `tau` modified in-place.
 geqlf!(A::AbstractMatrix, tau::AbstractVector)
 
 """
-    geqp3!(A, jpvt, tau)
+    geqp3!(A, [jpvt, tau]) -> (A, tau, jpvt)
 
 Compute the pivoted `QR` factorization of `A`, `AP = QR` using BLAS level 3.
 `P` is a pivoting matrix, represented by `jpvt`. `tau` stores the elementary
-reflectors. `jpvt` must have length length greater than or equal to `n` if `A`
-is an `(m x n)` matrix. `tau` must have length greater than or equal to the
-smallest dimension of `A`.
+reflectors. The arguments `jpvt` and `tau` are optional and allow
+for passing preallocated arrays. When passed, `jpvt` must have length greater
+than or equal to `n` if `A` is an `(m x n)` matrix and `tau` must have length
+greater than or equal to the smallest dimension of `A`.
 
 `A`, `jpvt`, and `tau` are modified in-place.
 """
 geqp3!(A::AbstractMatrix, jpvt::AbstractVector{BlasInt}, tau::AbstractVector)
+
+function geqp3!(A::AbstractMatrix{<:BlasFloat}, jpvt::AbstractVector{BlasInt})
+    m, n = size(A)
+    geqp3!(A, jpvt, similar(A, min(m, n)))
+end
+
+function geqp3!(A::AbstractMatrix{<:BlasFloat})
+    m, n = size(A)
+    geqp3!(A, zeros(BlasInt, n), similar(A, min(m, n)))
+end
 
 """
     geqrt!(A, T)
@@ -724,34 +753,6 @@ Returns `A`, modified in-place, and `tau`, which contains scalars
 which parameterize the elementary reflectors of the factorization.
 """
 gerqf!(A::AbstractMatrix{<:BlasFloat}) = ((m,n) = size(A); gerqf!(A, similar(A, min(m, n))))
-
-"""
-    geqp3!(A, jpvt) -> (A, jpvt, tau)
-
-Compute the pivoted `QR` factorization of `A`, `AP = QR` using BLAS level 3.
-`P` is a pivoting matrix, represented by `jpvt`. `jpvt` must have length
-greater than or equal to `n` if `A` is an `(m x n)` matrix.
-
-Returns `A` and `jpvt`, modified in-place, and `tau`, which stores the elementary
-reflectors.
-"""
-function geqp3!(A::AbstractMatrix{<:BlasFloat}, jpvt::AbstractVector{BlasInt})
-    m, n = size(A)
-    geqp3!(A, jpvt, similar(A, min(m, n)))
-end
-
-"""
-    geqp3!(A) -> (A, jpvt, tau)
-
-Compute the pivoted `QR` factorization of `A`, `AP = QR` using BLAS level 3.
-
-Returns `A`, modified in-place, `jpvt`, which represents the pivoting matrix `P`,
-and `tau`, which stores the elementary reflectors.
-"""
-function geqp3!(A::AbstractMatrix{<:BlasFloat})
-    m, n = size(A)
-    geqp3!(A, zeros(BlasInt, n), similar(A, min(m, n)))
-end
 
 ## Tools to compute and apply elementary reflectors
 for (larfg, elty) in
@@ -3806,10 +3807,16 @@ for (stev, stebz, stegr, stein, elty) in
             require_one_based_indexing(dv, ev)
             chkstride1(dv, ev)
             n = length(dv)
-            if length(ev) != n - 1
-                throw(DimensionMismatch("ev has length $(length(ev)) but needs one less than dv's length, $n)"))
+            ne = length(ev)
+            if ne == n - 1
+                eev = [ev; zero($elty)]
+            elseif ne == n
+                eev = copy(ev)
+                eev[n] = zero($elty)
+            else
+                throw(DimensionMismatch("ev has length $(length(ev)) but should be either $(length(dv) - 1) or $(length(dv))"))
             end
-            eev = [ev; zero($elty)]
+
             abstol = Vector{$elty}(undef, 1)
             m = Ref{BlasInt}()
             w = similar(dv, $elty, n)
@@ -5047,6 +5054,7 @@ for (syev, syevr, sygvd, elty) in
                         vl::AbstractFloat, vu::AbstractFloat, il::Integer, iu::Integer, abstol::AbstractFloat)
             chkstride1(A)
             n = checksquare(A)
+            chkuplofinite(A, uplo)
             if range == 'I' && !(1 <= il <= iu <= n)
                 throw(ArgumentError("illegal choice of eigenvalue indices (il = $il, iu = $iu), which must be between 1 and n = $n"))
             end
@@ -6365,15 +6373,18 @@ end
 
 """
     trexc!(compq, ifst, ilst, T, Q) -> (T, Q)
+    trexc!(ifst, ilst, T, Q) -> (T, Q)
 
-Reorder the Schur factorization of a matrix. If `compq = V`, the Schur
-vectors `Q` are reordered. If `compq = N` they are not modified. `ifst`
-and `ilst` specify the reordering of the vectors.
+Reorder the Schur factorization `T` of a matrix, such that the diagonal block
+of `T` with row index `ifst` is moved to row index `ilst`. If `compq = V`, the Schur
+vectors `Q` are reordered. If `compq = N` they are not modified. The 4-arg method
+calls the 5-arg method with `compq = V`.
 """
 trexc!(compq::AbstractChar, ifst::BlasInt, ilst::BlasInt, T::AbstractMatrix, Q::AbstractMatrix)
 
 """
-    trsen!(compq, job, select, T, Q) -> (T, Q, w, s, sep)
+    trsen!(job, compq, select, T, Q) -> (T, Q, w, s, sep)
+    trsen!(select, T, Q) -> (T, Q, w, s, sep)
 
 Reorder the Schur factorization of a matrix and optionally finds reciprocal
 condition numbers. If `job = N`, no condition numbers are found. If `job = E`,
@@ -6382,7 +6393,8 @@ only the condition number for this cluster of eigenvalues is found. If
 If `job = B` then the condition numbers for the cluster and subspace are
 found. If `compq = V` the Schur vectors `Q` are updated. If `compq = N`
 the Schur vectors are not modified. `select` determines which
-eigenvalues are in the cluster.
+eigenvalues are in the cluster. The 3-arg method calls the 5-arg method
+with `job = N` and `compq = V`.
 
 Returns `T`, `Q`, reordered eigenvalues in `w`, the condition number of the
 cluster of eigenvalues `s`, and the condition number of the invariant subspace

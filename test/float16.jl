@@ -76,6 +76,7 @@ end
     @test Float16(0.5f0)^2 ≈ Float16(0.5f0^2)
     @test sin(f) ≈ sin(2f0)
     @test log10(Float16(100)) == Float16(2.0)
+    @test sin(ComplexF16(f)) ≈ sin(complex(2f0))
 
     # no domain error is thrown for negative values
     @test cbrt(Float16(-1.0)) == -1.0
@@ -129,7 +130,7 @@ end
     @test prevfloat(-Inf16) === -Inf16
 end
 
-@test repr(Float16(44099)) == "Float16(44100.0)"
+@test repr(Float16(44099)) == "Float16(4.41e4)"
 
 @testset "signed zeros" begin
     for z1 in (Float16(0.0), Float16(-0.0)), z2 in (Float16(0.0), Float16(-0.0))
@@ -159,7 +160,7 @@ end
 end
 
 # issue #5948
-@test string(reinterpret(Float16, 0x7bff)) == "65500.0"
+@test string(reinterpret(Float16, 0x7bff)) == "6.55e4"
 
 #  #9939 (and #9897)
 @test rationalize(Float16(0.1)) == 1//10
