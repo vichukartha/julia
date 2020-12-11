@@ -537,7 +537,7 @@ julia> collect(eachslice(M, dims=2))
     lookup = ntuple(dim -> findfirst(isequal(dim), dims), N)
 
     # determine element type
-    I = Tuple{map((a,l) -> l === nothing ? typeof(a) : eltype(a), axes(A), lookup)...}
+    I = Tuple{map((a,l) -> l === nothing ? Slice{typeof(a)} : eltype(a), axes(A), lookup)...}
     hasstride = IndexStyle(A) === IndexLinear() # has linear indexing if parent does
     E = SubArray{eltype(A),N-M,typeof(A),I,hasstride}
 
