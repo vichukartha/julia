@@ -1,3 +1,12 @@
+// `jl_cpuid()` and `jl_cpuidex()` are currently defined only on a few platforms
+#if defined(_CPU_X86_64_) || defined(_CPU_X86_)
+#define ARCH_SPECIFIC_FUNCS(XX) \
+    XX(jl_cpuid) \
+    XX(jl_cpuidex)
+#else
+#define ARCH_SPECIFIC_FUNCS(XX)
+#endif
+
 #define JL_EXPORTED_FUNCS(XX) \
     XX(jl_) \
     XX(jl_abs_float) \
@@ -119,8 +128,6 @@
     XX(jl_copy_ast) \
     XX(jl_copy_code_info) \
     XX(jl_copysign_float) \
-    XX(jl_cpuid) \
-    XX(jl_cpuidex) \
     XX(jl_cpu_pause) \
     XX(jl_cpu_threads) \
     XX(jl_cpu_wake) \
@@ -757,4 +764,5 @@
     XX(jl_wakeup_thread) \
     XX(jl_xor_int) \
     XX(jl_yield) \
-    XX(jl_zext_int)
+    XX(jl_zext_int) \
+    ARCH_SPECIFIC_FUNCS(XX) \
