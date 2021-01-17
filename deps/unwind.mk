@@ -90,7 +90,8 @@ $(BUILDDIR)/llvmunwind-$(LLVMUNWIND_VER)/build-compiled: $(BUILDDIR)/llvmunwind-
 
 $(eval $(call staged-install, \
 	llvmunwind,llvmunwind-$(LLVMUNWIND_VER), \
-	MAKE_INSTALL,,,))
+	MAKE_INSTALL,,, \
+	cp -R $(SRCCACHE)/llvmunwind-$(LLVMUNWIND_VER)/include/* $(build_includedir)))
 
 clean-llvmunwind:
 	-rm $(BUILDDIR)/llvmunwind-$(LLVMUNWIND_VER)/build-configured $(BUILDDIR)/llvmunwind-$(LLVMUNWIND_VER)/build-compiled
