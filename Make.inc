@@ -1022,6 +1022,8 @@ else
 ifeq ($(OS),Darwin)
 LIBUNWIND:=-lunwind
 JCPPFLAGS+=-DLLVMLIBUNWIND
+# The BinaryBuilder version of LLVM libunwind currently doesn't have the patch to support forcing DWARF
+#JCPPFLAGS+=-DSUPPORT_UNWIND_FORCE_DWARF
 else
 LIBUNWIND:=-lunwind
 endif
