@@ -1575,8 +1575,8 @@ let x = TypeVar(:_), y = TypeVar(:_)
     x = TypeVar(:a)
     y = TypeVar(:a)
     z = TypeVar(:a)
-    @test repr(UnionAll(z, UnionAll(x, UnionAll(y, Tuple{x,y,z})))) == "Tuple{<:Any, <:Any, a} where a"
-    @test repr(UnionAll(z, UnionAll(x, UnionAll(y, Tuple{z,y,x})))) == "Tuple{a, <:Any, a1} where {a, a1}"
+    @test repr(UnionAll(z, UnionAll(x, UnionAll(y, Tuple{x,y,z})))) == "Tuple{a1, a2, a} where {a, a1, a2}"
+    @test repr(UnionAll(z, UnionAll(x, UnionAll(y, Tuple{z,y,x})))) == "Tuple{a, a2, a1} where {a, a1, a2}"
 end
 
 is_juliarepr(x) = eval(Meta.parse(repr(x))) == x
@@ -1696,7 +1696,7 @@ end
     @test showstr([Float16(1)]) == "Float16[1.0]"
     @test showstr([[Float16(1)]]) == "Vector{Float16}[[1.0]]"
     @test replstr(Real[Float16(1)]) == "1-element Vector{Real}:\n Float16(1.0)"
-    @test replstr(Array{Real}[Real[1]]) == "1-element Vector{Array{Real, <:Any}}:\n [1]"
+    @test replstr(Array{Real}[Real[1]]) == "1-element Vector{Array{Real}}:\n [1]"
     # printing tuples (Issue #25042)
     @test replstr(fill((Int64(1), zeros(Float16, 3)), 1)) ==
                  "1-element Vector{Tuple{Int64, Vector{Float16}}}:\n (1, [0.0, 0.0, 0.0])"
@@ -1966,7 +1966,7 @@ end
 
 @testset """printing "Any" is not skipped with nested arrays""" begin
     @test replstr(Union{X28004,Vector}[X28004(Any[X28004(1)])], :compact => true) ==
-        "1-element Vector{Union{X28004, Vector{<:Any}}}:\n X(Any[X(1)])"
+        "1-element Vector{Union{X28004, Vector}}:\n X(Any[X(1)])"
 end
 
 # Issue 25589 - Underlines in cmd printing
@@ -2132,9 +2132,9 @@ end
 @test Base.make_typealias(M37012.AStruct{1}) === nothing
 @test isempty(Base.make_typealiases(M37012.AStruct{1})[1])
 @test string(M37012.AStruct{1}) == "$(curmod_prefix)M37012.AStruct{1}"
-@test string(Union{Nothing, Number, Vector}) == "Union{Nothing, Number, Vector{<:Any}}"
+@test string(Union{Nothing, Number, Vector}) == "Union{Nothing, Number, Vector}"
 @test string(Union{Nothing, Number, Vector{<:Integer}}) == "Union{Nothing, Number, Vector{<:Integer}}"
-@test string(Union{Nothing, AbstractVecOrMat}) == "Union{Nothing, AbstractVecOrMat{<:Any}}"
+@test string(Union{Nothing, AbstractVecOrMat}) == "Union{Nothing, AbstractVecOrMat}"
 @test string(Union{Nothing, AbstractVecOrMat{<:Integer}}) == "Union{Nothing, AbstractVecOrMat{<:Integer}}"
 @test string(M37012.BStruct{T, T} where T) == "$(curmod_prefix)M37012.B2{T, T} where T"
 @test string(M37012.BStruct{T, S} where {T<:Unsigned, S<:Signed}) == "$(curmod_prefix)M37012.B2{<:Signed, T} where T<:Unsigned"
