@@ -1950,6 +1950,24 @@
                ,@(map expand-forms (cddr e))))
         (cons (car e) (map expand-forms (cdr e))))))
 
+(define (expand-property-destruct lhss x)
+  (if (not (length= lhss 1))
+      (error (string "invalid assignment location \"" (deparse lhs) "\"")))
+  (let* ((xx (if (symbol-like? x) x (make-ssavalue)))
+         (ini (if (eq? x xx) '() (list (sink-assignment xx (expand-forms x))))))
+    `(block
+       ,@ini
+       ,@(map
+           (lambda (field)
+             (let ((prop (cond ((symbol? field) field)
+                               ((and (pair? field) (eq? (car field) '|::|) (symbol? (cadr field)))
+                                (cadr field))
+                               (else
+                                (error (string "invalid assignment location \"" (deparse lhs) "\""))))))
+               (expand-forms `(= ,field (call (top getproperty) ,xx (quote ,prop))))))
+           (cdar lhss))
+       (unnecessary ,xx))))
+
 (define (expand-tuple-destruct lhss x)
   (define (sides-match? l r)
     ;; l and r either have equal lengths, or r has a trailing ...
@@ -2166,18 +2184,7 @@
                 (x    (caddr e)))
             (if (has-parameters? lhss)
                 ;; property destructuring
-                (if (length= lhss 1)
-                    (let* ((xx (if (symbol-like? x) x (make-ssavalue)))
-                           (ini (if (eq? x xx) '() (list (sink-assignment xx (expand-forms x))))))
-                      `(block
-                         ,@ini
-                         ,@(map (lambda (field)
-                                  (if (not (symbol? field))
-                                      (error (string "invalid assignment location \"" (deparse lhs) "\"")))
-                                  (expand-forms `(= ,field (call (top getproperty) ,xx (quote ,field)))))
-                             (cdar lhss))
-                         (unnecessary ,xx)))
-                    (error (string "invalid assignment location \"" (deparse lhs) "\"")))
+                (expand-property-destruct lhss x)
                 ;; multiple assignment
                 (expand-tuple-destruct lhss x))))
          ((typed_hcat)
