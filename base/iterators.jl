@@ -19,7 +19,7 @@ import .Base:
     isempty, length, size, axes, ndims,
     eltype, IteratorSize, IteratorEltype,
     haskey, keys, values, pairs,
-    getindex, setindex!, get, iterate,
+    getindex, setindex!, get, getproperty, iterate,
     popfirst!, isdone, peek
 
 export enumerate, zip, rest, countfrom, take, drop, takewhile, dropwhile, cycle, repeated, product, flatten, partition
@@ -247,30 +247,33 @@ pairs(nt::NamedTuple) = Pairs(nt, keys(nt))
 pairs(v::Core.SimpleVector) = Pairs(v, LinearIndices(v))
 # pairs(v::Pairs) = v # listed for reference, but already defined from being an AbstractDict
 
-length(v::Pairs) = length(v.itr)
-axes(v::Pairs) = axes(v.itr)
-size(v::Pairs) = size(v.itr)
+length(v::Pairs) = length(getfield(v, :itr))
+axes(v::Pairs) = axes(getfield(v, :itr))
+size(v::Pairs) = size(getfield(v, :itr))
 @propagate_inbounds function iterate(v::Pairs{K, V}, state...) where {K, V}
-    x = iterate(v.itr, state...)
+    x = iterate(getfield(v, :itr), state...)
     x === nothing && return x
     indx, n = x
-    item = v.data[indx]
+    item = getfield(v, :data)[indx]
     return (Pair{K, V}(indx, item), n)
 end
-@inline isdone(v::Pairs, state...) = isdone(v.itr, state...)
+@inline isdone(v::Pairs, state...) = isdone(getfield(v, :itr), state...)
 
 IteratorSize(::Type{<:Pairs{<:Any, <:Any, I}}) where {I} = IteratorSize(I)
 IteratorSize(::Type{<:Pairs{<:Any, <:Any, <:Base.AbstractUnitRange, <:Tuple}}) = HasLength()
 
-reverse(v::Pairs) = Pairs(v.data, reverse(v.itr))
+reverse(v::Pairs) = Pairs(getfield(v, :data), reverse(getfield(v, :itr)))
 
-haskey(v::Pairs, key) = (key in v.itr)
-keys(v::Pairs) = v.itr
-values(v::Pairs) = v.data
-getindex(v::Pairs, key) = v.data[key]
-setindex!(v::Pairs, value, key) = (v.data[key] = value; v)
-get(v::Pairs, key, default) = get(v.data, key, default)
-get(f::Base.Callable, v::Pairs, key) = get(f, v.data, key)
+haskey(v::Pairs, key) = (key in getfield(v, :itr))
+keys(v::Pairs) = getfield(v, :itr)
+values(v::Pairs) = getfield(v, :data)
+getindex(v::Pairs, key) = getfield(v, :data)[key]
+setindex!(v::Pairs, value, key) = (getfield(v, :data)[key] = value; v)
+get(v::Pairs, key, default) = get(getfield(v, :data), key, default)
+get(f::Base.Callable, v::Pairs, key) = get(f, getfield(v, :data), key)
+if getproperty !== getfield
+    getproperty(::Pairs, ::Symbol) = error("foobar")
+end
 
 # zip
 

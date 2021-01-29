@@ -354,7 +354,7 @@ julia> B
 ```
 """
 function accumulate!(op, B, A; dims::Union{Integer, Nothing} = nothing, kw...)
-    nt = kw.data
+    nt = getfield(kw, :data)
     if nt isa NamedTuple{()}
         _accumulate!(op, B, A, dims, nothing)
     elseif nt isa NamedTuple{(:init,)}
