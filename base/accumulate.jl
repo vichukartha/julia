@@ -291,7 +291,7 @@ function accumulate(op, A; dims::Union{Nothing,Integer}=nothing, kw...)
         # This branch takes care of the cases not handled by `_accumulate!`.
         return collect(Iterators.accumulate(op, A; kw...))
     end
-    nt = kw.data
+    nt = getfield(kw, :data)
     if nt isa NamedTuple{()}
         out = similar(A, promote_op(op, eltype(A), eltype(A)))
     elseif nt isa NamedTuple{(:init,)}
