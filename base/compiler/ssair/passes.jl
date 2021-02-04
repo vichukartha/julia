@@ -548,11 +548,12 @@ function getfield_elim_pass!(ir::IRCode)
             # Also, we should probably have a version of typeassert
             # that's defined not to return its value to make life easier
             # for the backend.
-            pi = insert_node_here!(compact,
-                PiNode(stmt.args[2], compact.result[idx][:type]),
-                compact.result[idx][:type],
-                compact.result[idx][:line], true)
-            compact.ssa_rename[compact.idx-1] = pi
+            Y = stmt.args[2]
+            if !isa(Y, GlobalRef)
+                desc = compact.result[idx]
+                pi = insert_node_here!(compact, PiNode(Y, desc[:type]), desc[:type], desc[:line], true)
+                compact.ssa_rename[compact.idx-1] = pi
+            end
             continue
         elseif is_known_call(stmt, (===), compact)
             c1 = compact_exprtype(compact, stmt.args[2])
