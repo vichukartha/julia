@@ -1249,7 +1249,7 @@ end
 # AST transformations (softscope, Revise, OhMyREPL, etc.)
 @testset "AST Transformation" begin
     backend = REPL.REPLBackend()
-    @async REPL.start_repl_backend(backend)
+    detach(@async REPL.start_repl_backend(backend))
     put!(backend.repl_channel, (:(1+1), false))
     reply = take!(backend.response_channel)
     @test reply == Pair{Any, Bool}(2, false)

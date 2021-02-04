@@ -180,7 +180,7 @@ function beep(s::PromptState, duration::Real=options(s).beep_duration,
     isinteractive() || return # some tests fail on some platforms
     s.beeping = min(s.beeping + duration, maxduration)
     let colors = Base.copymutable(colors)
-        @async begin
+        detach(@async begin
             trylock(s.refresh_lock) || return
             try
                 orig_prefix = s.p.prompt_prefix
@@ -196,12 +196,10 @@ function beep(s::PromptState, duration::Real=options(s).beep_duration,
                 s.p.prompt_prefix = orig_prefix
                 refresh_multi_line(s, beeping=true)
                 s.beeping = 0.0
-            catch e
-                Base.showerror(stdout, e, catch_backtrace())
             finally
                 unlock(s.refresh_lock)
             end
-        end
+        end)
     end
     nothing
 end
